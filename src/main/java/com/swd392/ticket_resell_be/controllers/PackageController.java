@@ -18,6 +18,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import vn.payos.PayOS;
+import vn.payos.exception.PayOSException;
 import vn.payos.type.Webhook;
 import vn.payos.type.WebhookData;
 
@@ -98,9 +99,22 @@ public class PackageController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
         }
     }
+    @PostMapping("/confirm")
+    public ResponseEntity<String> confirmWebhook(@RequestBody String webhookUrl) {
+        try {
+            String confirmedUrl = payOS.confirmWebhook(webhookUrl);
+            return ResponseEntity.ok("Webhook confirmed successfully: " + confirmedUrl);
+        } catch (PayOSException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Error: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to confirm webhook: " + e.getMessage());
+        }
+    }
 
-    @PostMapping("/webhook/confirm-payment")
-    public ResponseEntity<Void> confirmPayment(@RequestBody Webhook webhookBody) {
+
+    @PostMapping("/confirm-payment")
+    public ResponseEntity<String> confirmPayment(@RequestBody Webhook webhookBody) {
         try {
             WebhookData webhookData = payOS.verifyPaymentWebhookData(webhookBody);
             if (webhookBody.getSuccess()) {
@@ -111,9 +125,13 @@ public class PackageController {
                 return ResponseEntity.badRequest().build();
             }
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Verification failed: " + e.getMessage());
         }
     }
 
 
 }
+
+
+
+
