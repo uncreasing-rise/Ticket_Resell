@@ -44,14 +44,10 @@ public class PackageServiceImplement implements PackageService {
 
     @Override
     public ApiItemResponse<Package> createPackage(PackageDtoRequest pkgDto) {
-        // Lấy người dùng hiện tại
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
-
-        // Lấy User từ cơ sở dữ liệu
         User createdByUser = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-
         Package pkg = new Package();
         pkg.setPackageName(pkgDto.getPackageName());
         pkg.setSaleLimit(pkgDto.getSaleLimit());
@@ -60,7 +56,6 @@ public class PackageServiceImplement implements PackageService {
         pkg.setCreatedBy(createdByUser);
         pkg.setDuration(pkgDto.getDuration());
         pkg.setStatus(pkgDto.isActive());
-
         Package savedPackage = packageRepository.save(pkg);
         return apiResponseBuilder.buildResponse(savedPackage, HttpStatus.CREATED, "Package created successfully");
     }
@@ -82,14 +77,12 @@ public class PackageServiceImplement implements PackageService {
     public ApiItemResponse<Package> updatePackage(UUID packageId, PackageDtoRequest pkgDto) {
         Package existingPackage = packageRepository.findById(packageId)
                 .orElseThrow(() -> new AppException(ErrorCode.PACKAGE_NOT_FOUND));
-
         existingPackage.setPackageName(pkgDto.getPackageName());
         existingPackage.setSaleLimit(pkgDto.getSaleLimit());
         existingPackage.setPrice(pkgDto.getPrice());
         existingPackage.setImageUrls(pkgDto.getImageUrls());
         existingPackage.setDuration(pkgDto.getDuration());
         existingPackage.setStatus(pkgDto.isActive());
-
         Package updatedPackage = packageRepository.save(existingPackage);
         return apiResponseBuilder.buildResponse(updatedPackage, HttpStatus.OK, "Package updated successfully");
     }
@@ -119,8 +112,8 @@ public class PackageServiceImplement implements PackageService {
                 .amount(pkg.getPrice().intValue())
                 .description("Purchase Package")
                 .item(item)
-                .returnUrl("http://your_return_url") // Thay thế bằng URL của bạn
-                .cancelUrl("http://your_cancel_url") // Thay thế bằng URL của bạn
+                .returnUrl("http://your_return_url")
+                .cancelUrl("http://your_cancel_url")
                 .build();
         CheckoutResponseData checkoutData = payOS.createPaymentLink(paymentData);
         String checkoutUrl = checkoutData.getCheckoutUrl();
@@ -140,27 +133,18 @@ public class PackageServiceImplement implements PackageService {
     }
 
     public void confirmPayment(long orderCode) {
-        // Tìm giao dịch bằng mã đơn hàng
         Transaction transaction = (Transaction) transactionRepository.findTransactionsByDescription(String.valueOf(orderCode))
                 .orElseThrow(() -> new AppException(ErrorCode.TRANSACTION_NOT_FOUND));
-
-        // Kiểm tra trạng thái giao dịch
         if (!TransactionStatus.PENDING.equals(transaction.getStatus())) {
             throw new AppException(ErrorCode.TRANSACTION_ALREADY_CONFIRMED);
         }
-
-        // Cập nhật trạng thái giao dịch
         transaction.setStatus(TransactionStatus.COMPLETED);
         transactionRepository.save(transaction);
-
-        // Tạo đăng ký mới cho người dùng
         Subscription subscription = new Subscription();
         subscription.setId(UUID.randomUUID());
         subscription.setUser(transaction.getUser());
         subscription.setPackageField(transaction.getAPackage());
         subscription.setStartDate(LocalDate.now());
-
-        // Lưu đăng ký vào cơ sở dữ liệu
         subscriptionRepository.save(subscription);
     }
 

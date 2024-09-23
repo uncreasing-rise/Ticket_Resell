@@ -2,11 +2,11 @@ package com.swd392.ticket_resell_be.controllers;
 
 import com.swd392.ticket_resell_be.dtos.requests.PackageDtoRequest;
 import com.swd392.ticket_resell_be.dtos.requests.PackagePurchaseRequest;
+import com.swd392.ticket_resell_be.dtos.requests.WebhookRequest;
 import com.swd392.ticket_resell_be.dtos.responses.ApiItemResponse;
 import com.swd392.ticket_resell_be.entities.Package;
 import com.swd392.ticket_resell_be.entities.User;
 import com.swd392.ticket_resell_be.exceptions.AppException;
-import com.swd392.ticket_resell_be.repositories.TransactionRepository;
 import com.swd392.ticket_resell_be.repositories.UserRepository;
 import com.swd392.ticket_resell_be.services.PackageService;
 import jakarta.validation.Valid;
@@ -32,7 +32,6 @@ import java.util.UUID;
 public class PackageController {
     PackageService packageService;
     UserRepository userRepository;
-    TransactionRepository transactionRepository;
     PayOS payOS;
 
     @PostMapping
@@ -80,33 +79,31 @@ public class PackageController {
     @PostMapping("/purchase")
     public ResponseEntity<String> purchasePackage(@RequestBody PackagePurchaseRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName(); // Hoặc bất kỳ định danh nào khác của người dùng
-
-        // Lấy thông tin người dùng từ username
+        String username = authentication.getName();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         try {
-            // Thực hiện quá trình mua gói và lấy checkoutUrl
             String checkoutUrl = packageService.purchasePackage(request.getPackageId(), user.getId());
-            // Trả về checkoutUrl
             return ResponseEntity.status(HttpStatus.CREATED).body(checkoutUrl);
         } catch (AppException appEx) {
-            // Xử lý các lỗi ứng dụng cụ thể
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(appEx.getMessage());
         } catch (Exception e) {
-            // Xử lý lỗi chung
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
         }
     }
     @PostMapping("/confirm")
-    public ResponseEntity<String> confirmWebhook(@RequestBody String webhookUrl) {
+    public ResponseEntity<String> confirmWebhook(@RequestBody WebhookRequest webhookRequest) {
         try {
-            String confirmedUrl = payOS.confirmWebhook(webhookUrl);
+            String confirmedUrl = payOS.confirmWebhook(webhookRequest.getWebhookUrl());
+            System.out.println("Webhook confirmed response: " + confirmedUrl); // Log response
             return ResponseEntity.ok("Webhook confirmed successfully: " + confirmedUrl);
         } catch (PayOSException e) {
+            System.err.println("PayOSException details: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Error: " + e.getMessage());
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
+            System.err.println("Unexpected error occurred: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to confirm webhook: " + e.getMessage());
         }
